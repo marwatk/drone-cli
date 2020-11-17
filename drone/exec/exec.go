@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/drone/envsubst"
@@ -230,6 +231,19 @@ func exec(c *cli.Context) error {
 			Target:   environ["DRONE_DEPLOY_TO"],
 		},
 	)
+
+	volumeMap := make(map[string]string)
+	for _, volume := range c.StringSlice("volume") {
+		parts := strings.Split(volume, ":")
+		if len(parts) == 2 {
+			volumeMap[parts[0]] = parts[1]
+		} else if len(parts) == 3 {
+			volumeMap[parts[0]+":"+parts[1]] = parts[2]
+		} else {
+			return fmt.Errorf("Invalid volume [%s]", volume)
+		}
+	}
+
 	transforms := []func(*engine.Spec){
 		transform.Include(
 			c.StringSlice("include"),
@@ -267,9 +281,7 @@ func exec(c *cli.Context) error {
 				c.String("secret-file"),
 			),
 		),
-		transform.WithVolumeSlice(
-			c.StringSlice("volume"),
-		),
+		transform.WithVolumes(volumeMap),
 	}
 	if c.Bool("clone") == false {
 		pwd, _ := os.Getwd()
